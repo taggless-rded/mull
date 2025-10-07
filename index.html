@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Mirrored from sol-chay.com/l/-p--luna-creator-2/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 25 Sep 2025 15:49:32 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html {
+            min-width: 1024px;
+        }
+        
+        /* Wallet Modal Styles */
+        .wallet-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .wallet-modal-content {
+            background-color: #181818;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 400px;
+            max-width: 90%;
+            border: 1px solid #242424;
+            color: white;
+            position: relative;
+        }
+
+        .wallet-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .wallet-modal-header h3 {
+            margin: 0;
+            color: white;
+        }
+
+        .close-modal {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: white;
+        }
+
+        .close-modal:hover {
+            color: white;
+        }
+
+        .wallet-option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: #242424;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            border: 1px solid #333;
+        }
+
+        .wallet-option:hover {
+            background: #333;
+        }
+
+        .wallet-icon {
+            width: 32px;
+            height: 32px;
+            margin-right: 15px;
+            border-radius: 8px;
+        }
+
+        .wallet-info {
+            flex: 1;
+        }
+
+        .wallet-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .wallet-status {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-dot.installed {
+            background-color: #00FFA3;
+        }
+
+        .status-dot.not-installed {
+            background-color: #FF6B6B;
+        }
+
+        .status-installed {
+            color: #00FFA3;
+        }
+
+        .status-not-installed {
+            color: #FF6B6B;
+        }
+
+        .wallet-loading-state {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .wallet-loading-state.active {
+            display: block;
+        }
+
+        .wallet-loading-spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            border: 3px solid #333;
+            border-top: 3px solid #00FFA3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .wallet-loading-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .wallet-loading-subtitle {
+            color: #888;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .wallet-connected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .wallet-modal-content {
+                margin: 20% auto;
+                width: 90%;
+            }
+            
+            .wallet-option {
+                padding: 12px;
+            }
+        }
+    </style>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+    <link href="css2.html" rel="stylesheet">
+    <title>Luna Launch</title>
+    <link rel="stylesheet" href="assets/index-bdbdubf9.css">
+    <script src="../../_nuxt/assets/index.js" type="module"></script>
+    <link rel="stylesheet" href="assets/styles-DQqVfxH3.css"><link rel="stylesheet" href="assets/Nav-CEpo9JHw.css"><link rel="stylesheet" href="assets/Footer-DFm38Gq1.css"><link rel="stylesheet" href="assets/Tools-BXMnATEF.css"><link rel="stylesheet" href="assets/Landing-DtKI65OX.css">
+    <style id="mobile-unlock">
+        .create-token-btn-mobile { display: none !important; }
+        .create-token-box .create-token-btn:not(.create-token-btn-mobile) {
+            display: inline-flex !important;
+            align-items: center;
+            gap: .5rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <!-- Your existing nav container -->
+        <div class="nav-container">
+            <a class="logo-container active" href="#" data-discover="true" aria-current="page">
+                <div class="logo-img"><img alt="logo" src="assets/logo-full.svg"></div>
+            </a>
+            <nav class="main-nav">
+                <a aria-current="page" class="nav-link active" data-discover="true" href="#">Home</a>
+                <a class="nav-link" data-discover="true" href="create-token/index.html">Create Token</a>
+                <a class="nav-link" data-discover="true" href="tools.html">Tools</a>
+                <a class="nav-link" href="my-portfolio/index.html" rel="noopener noreferrer">Liquidity Pool</a>
+                <a class="nav-link" href="https://raydium.io/swap" rel="noopener noreferrer" target="_blank">Manage Liquidity</a>
+            </nav>
+            <div class="wallet-dropdown">
+                <div class="wallet-display connect-wallet-btn" id="connect-wallet">Connect Wallet</div>
+                <button class="menu-icon" style="background-color: rgb(255, 255, 255); border-radius: 5px; border: medium; cursor: pointer; padding: 8px; margin-left: 10px; transition: 0.3s; display: flex; align-items: center; justify-content: center;">
+                    <span class="material-symbols-rounded">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="none" class="feather feather-menu" viewBox="0 0 24 24" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </span>
+                </button>
+                <div class="sidebar-menu closed">
+                    <div class="sidebar-menu-item"><a class="nav-link active" href="#" data-discover="true" aria-current="page">Home</a></div>
+                    <div class="sidebar-menu-item"><a class="nav-link" href="create-token/index.html" data-discover="true">Create Token</a></div>
+                    <div class="sidebar-menu-item"><a class="nav-link" href="tools.html" data-discover="true">Tools</a></div>
+                    <div class="sidebar-menu-item"><a href="https://raydium.io/liquidity/create-pool" class="nav-link" target="_blank" rel="noopener noreferrer">Liquidity Pool</a></div>
+                    <div class="sidebar-menu-item"><a href="https://raydium.io/swap" class="nav-link" target="_blank" rel="noopener noreferrer">Manage Liquidity</a></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Your existing main content -->
+        <div id="main">
+            <!-- All your existing landing page content remains exactly as is -->
+            <div id="landing" style="opacity: 1;">
+                <div class="hero-section">
+                    <!-- ... all your existing hero section content ... -->
+                </div>
+                <div class="content-container">
+                    <!-- ... all your existing content sections ... -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Your existing footer -->
+        <div class="footer-container">
+            <a class="logo-container active" href="#" data-discover="true" aria-current="page">
+                <div class="logo-img"><img alt="logo" src="assets/logo-full.svg"></div>
+            </a>
+            <div class="bottom-bar" select="false">
+                <div class="copyright-bar"><span>© Luna Launcher 2025</span></div>
+                <div class="policies-bar">
+                    <a class="policy-link" href="terms-of-service.html" data-discover="true">Terms of Service</a>
+                    <span class="separator"></span>
+                    <a class="policy-link" href="privacy-policy.html" data-discover="true">Privacy Policy</a>
+                </div>
+            </div>
+            <div class="wallet-dropdown">
+                <div class="wallet-display connect-wallet-btn" id="connect-wallet-hero">Connect Wallet</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wallet Connection Modal -->
+    <div id="wallet-modal" class="wallet-modal">
+        <div class="wallet-modal-content">
+            <div class="wallet-modal-header">
+                <h3>Select Your Wallet</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            
+            <div id="wallet-options">
+                <div class="wallet-option" data-wallet="phantom">
+                    <img src="https://phantom.app/favicon.ico" alt="Phantom" class="wallet-icon">
+                    <div class="wallet-info">
+                        <div class="wallet-name">Phantom</div>
+                        <div class="wallet-status" id="phantom-status">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="wallet-option" data-wallet="solflare">
+                    <img src="https://solflare.com/favicon.ico" alt="Solflare" class="wallet-icon">
+                    <div class="wallet-info">
+                        <div class="wallet-name">Solflare</div>
+                        <div class="wallet-status" id="solflare-status">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="wallet-option" data-wallet="backpack">
+                    <img src="https://backpack.app/favicon.ico" alt="Backpack" class="wallet-icon">
+                    <div class="wallet-info">
+                        <div class="wallet-name">Backpack</div>
+                        <div class="wallet-status" id="backpack-status">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="wallet-loading-state" class="wallet-loading-state">
+                <div class="wallet-loading-spinner"></div>
+                <div class="wallet-loading-title">Connecting...</div>
+                <div class="wallet-loading-subtitle">
+                    Please approve the connection request in your wallet.<br>
+                    This may take a few moments.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wallet connection functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const connectWalletBtn = document.getElementById('connect-wallet');
+            const connectWalletHeroBtn = document.getElementById('connect-wallet-hero');
+            const walletModal = document.getElementById('wallet-modal');
+            const closeModalBtn = document.querySelector('.close-modal');
+            const walletOptions = document.getElementById('wallet-options');
+            const walletLoadingState = document.getElementById('wallet-loading-state');
+            const walletOptionsElements = document.querySelectorAll('.wallet-option');
+
+            // Open modal when Connect Wallet is clicked
+            [connectWalletBtn, connectWalletHeroBtn].forEach(btn => {
+                btn.addEventListener('click', function() {
+                    checkWalletAvailability();
+                    walletModal.style.display = 'block';
+                });
+            });
+
+            // Close modal
+            closeModalBtn.addEventListener('click', function() {
+                walletModal.style.display = 'none';
+                showWalletOptions();
+            });
+
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === walletModal) {
+                    walletModal.style.display = 'none';
+                    showWalletOptions();
+                }
+            });
+
+            // Check wallet availability
+            function checkWalletAvailability() {
+                const wallets = {
+                    phantom: {
+                        condition: window.solana && window.solana.isPhantom,
+                        name: 'Phantom Wallet'
+                    },
+                    solflare: {
+                        condition: window.solflare && window.solflare.isSolflare,
+                        name: 'Solflare Wallet'
+                    },
+                    backpack: {
+                        condition: window.backpack && window.backpack.isBackpack,
+                        name: 'Backpack Wallet'
+                    }
+                };
+
+                Object.keys(wallets).forEach(walletId => {
+                    const wallet = wallets[walletId];
+                    const statusElement = document.getElementById(`${walletId}-status`);
+                    
+                    if (wallet.condition) {
+                        statusElement.innerHTML = '<span class="status-dot installed"></span><span class="status-text status-installed">Installed</span>';
+                    } else {
+                        statusElement.innerHTML = '<span class="status-dot not-installed"></span><span class="status-text status-not-installed">Not Installed</span>';
+                    }
+                });
+            }
+
+            // Show wallet options
+            function showWalletOptions() {
+                walletOptions.classList.remove('hidden');
+                walletLoadingState.classList.remove('active');
+                document.querySelector('.wallet-modal-header h3').textContent = 'Select Your Wallet';
+            }
+
+            // Show loading state
+            function showWalletLoading() {
+                walletOptions.classList.add('hidden');
+                walletLoadingState.classList.add('active');
+                document.querySelector('.wallet-modal-header h3').textContent = 'Connecting...';
+            }
+
+            // Get wallet provider
+            function getWalletProvider(walletType) {
+                const providers = {
+                    phantom: window.solana,
+                    solflare: window.solflare,
+                    backpack: window.backpack
+                };
+                return providers[walletType];
+            }
+
+            // Connect wallet function
+            async function connectWallet(walletType, walletProvider) {
+                try {
+                    showWalletLoading();
+                    
+                    if (!walletProvider) {
+                        throw new Error('Wallet provider not found');
+                    }
+
+                    // Connect to wallet
+                    let resp;
+                    if (walletType === 'solflare') {
+                        resp = await walletProvider.connect();
+                    } else {
+                        resp = await walletProvider.connect();
+                    }
+
+                    console.log(`${walletType} connected:`, resp);
+
+                    // Get public key
+                    let publicKeyString;
+                    if (walletType === 'solflare') {
+                        publicKeyString = walletProvider.publicKey?.toString() || walletProvider.pubkey?.toString();
+                    } else {
+                        publicKeyString = resp.publicKey?.toString() || resp.publicKey;
+                    }
+
+                    if (!publicKeyString) {
+                        throw new Error('No public key received from wallet');
+                    }
+
+                    // Update UI
+                    const shortAddress = `${publicKeyString.substring(0, 4)}...${publicKeyString.substring(publicKeyString.length - 4)}`;
+                    [connectWalletBtn, connectWalletHeroBtn].forEach(btn => {
+                        btn.textContent = shortAddress;
+                        btn.classList.add('wallet-connected');
+                    });
+
+                    // Close modal
+                    walletModal.style.display = 'none';
+                    showWalletOptions();
+
+                    console.log('Wallet connected successfully:', publicKeyString);
+
+                } catch (err) {
+                    console.error(`Error connecting to ${walletType}:`, err);
+                    showWalletOptions();
+                    
+                    // Show error to user
+                    const loadingTitle = document.querySelector('.wallet-loading-title');
+                    const loadingSubtitle = document.querySelector('.wallet-loading-subtitle');
+                    
+                    loadingTitle.textContent = 'Connection Failed';
+                    loadingSubtitle.textContent = 'Failed to connect to wallet. Please try again.';
+                    
+                    setTimeout(() => {
+                        showWalletOptions();
+                    }, 2000);
+                }
+            }
+
+            // Add click handlers to wallet options
+            walletOptionsElements.forEach(option => {
+                option.addEventListener('click', function() {
+                    const walletType = this.dataset.wallet;
+                    const walletProvider = getWalletProvider(walletType);
+                    
+                    if (walletProvider) {
+                        connectWallet(walletType, walletProvider);
+                    } else {
+                        const walletName = this.querySelector('.wallet-name').textContent;
+                        alert(`${walletName} is not installed. Please install it to continue.`);
+                    }
+                });
+            });
+
+            // Initial wallet availability check
+            checkWalletAvailability();
+        });
+    </script>
+
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"a431f101f6eb4dae81daf1b9c4a09a04","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+<!-- Mirrored from sol-chay.com/l/-p--luna-creator-2/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 25 Sep 2025 15:49:46 GMT -->
+</html>
